@@ -1,6 +1,26 @@
-# 网络出口可达性监控
+# NetPulse - 网络出口可达性监控
 
-从 Linux 机器向外定时 ICMP ping + TCP 握手延迟检测，覆盖三大运营商 x 五大地区，Web 仪表盘实时查看。
+[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/flask-3.0+-green.svg)](https://flask.palletsprojects.com/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+> 从 Linux 边缘节点向外定时探测出口 IP 的可达性、延迟与丢包率，覆盖三大运营商 × 五大地区，提供 Web 仪表盘实时查看与告警。
+
+## 功能特性
+
+- **双协议探测** — ICMP Ping 测量网络层 RTT 与丢包；TCP 握手测量传输层连接延迟
+- **多维度覆盖** — 6 个海内外 DNS 基准（ICMP）+ 15 个目标覆盖 电信/联通/移动 × 华北/华东/华南/华中/华西（TCP）
+- **实时仪表盘** — 折线图 + 地区×运营商矩阵表，每张图独立缩放（10分钟~180天）、鼠标悬停查看数值
+- **告警阈值** — 逐目标设置延迟/丢包上限，超限卡片红色泛光提醒
+- **轻量部署** — 单 Python 文件 + SQLite，`pip install flask` 即跑，不依赖外部数据库
+- **多机对比** — 同一套代码部署到多台 Linux，横向对比不同网络出口质量
+
+## 截图预览
+
+打开浏览器访问面板后，可在「ICMP Ping」和「TCP 延迟」两个 Tab 之间切换：
+
+- **ICMP**：各目标延迟/丢包趋势图 + 当前窗口聚合统计
+- **TCP**：地区×运营商延迟矩阵 + 每目标独立折线图 + 平均值/最小/最大
 
 ## 检测维度
 
