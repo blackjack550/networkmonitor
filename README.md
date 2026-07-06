@@ -17,6 +17,8 @@
 
 ## 截图预览
 
+![NetPulse Dashboard](demo.png)
+
 打开浏览器访问面板后，可在「ICMP Ping」和「TCP 延迟」两个 Tab 之间切换：
 
 - **ICMP**：各目标延迟/丢包趋势图 + 当前窗口聚合统计
