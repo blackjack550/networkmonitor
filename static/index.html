@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>网络出口监控面板</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','Microsoft YaHei',sans-serif;background:#0f1923;color:#c8d6e5;padding:16px}
+h1{text-align:center;margin-bottom:16px;color:#feca57;font-size:22px}
+.toolbar{display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.toolbar button{background:#2d3e50;color:#c8d6e5;border:1px solid #3d5060;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px;white-space:nowrap}
+.toolbar button:hover{background:#3d5060}
+.toolbar button.active{background:#0abf53;color:#fff;border-color:#0abf53}
+.toolbar .sep{color:#576574;margin:0 4px;font-size:12px}
+.time-range{display:flex;gap:4px}
+.time-range button{padding:4px 10px;font-size:11px;min-width:38px}
+.time-range button.active{background:#48dbfb;color:#0f1923;border-color:#48dbfb}
+#btnSettings{background:#feca57;color:#0f1923;border-color:#feca57;font-weight:700}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(480px,1fr));gap:14px}
+.card{background:#1a2736;border-radius:10px;padding:14px;border:2px solid #2d3e50;transition:border-color .3s,background .3s}
+.card.alert-critical{border-color:#ee5a24 !important;box-shadow:0 0 12px rgba(238,90,36,0.3)}
+.card.alert-warning{border-color:#feca57 !important}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.card-title{font-size:15px;font-weight:700;color:#48dbfb}
+.card-host{font-size:11px;color:#8395a7}
+.status-badge{padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.status-up{background:#0abf53;color:#fff}
+.status-down{background:#ee5a24;color:#fff}
+.chart-wrap{height:220px;position:relative}
+.stats{display:flex;gap:12px;margin-top:8px;font-size:12px}
+.stat{flex:1;text-align:center;background:#0f1923;border-radius:6px;padding:6px}
+.stat-value{font-size:19px;font-weight:700}
+.stat-label{color:#8395a7;font-size:10px;margin-top:1px}
+.latency-high{color:#ee5a24}
+.latency-mid{color:#feca57}
+.latency-low{color:#0abf53}
+.zoom-btns{display:flex;gap:2px;margin-left:6px}
+.zoom-btns button{background:#2d3e50;color:#48dbfb;border:1px solid #3d5060;border-radius:3px;cursor:pointer;font-size:13px;font-weight:700;width:20px;height:20px;line-height:1;padding:0;text-align:center;display:flex;align-items:center;justify-content:center}
+.zoom-btns button:hover{background:#48dbfb;color:#0f1923}
+.zoom-btns .zoom-label{font-size:9px;color:#8395a7;min-width:28px;text-align:center;line-height:20px}
+.refresh{text-align:center;margin-top:16px;font-size:11px;color:#576574}
+
+/* modal */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:100;justify-content:center;align-items:center}
+.modal-overlay.show{display:flex}
+.modal{background:#1a2736;border:1px solid #2d3e50;border-radius:12px;padding:20px;max-width:700px;width:90%;max-height:80vh;overflow-y:auto}
+.modal h2{color:#feca57;margin-bottom:12px;font-size:18px}
+.modal table{width:100%;border-collapse:collapse;font-size:13px}
+.modal th{text-align:left;padding:8px 6px;border-bottom:1px solid #2d3e50;color:#48dbfb}
+.modal td{padding:6px;border-bottom:1px solid #1a2736}
+.modal input[type=number]{width:70px;background:#0f1923;border:1px solid #2d3e50;color:#c8d6e5;padding:4px 6px;border-radius:4px;font-size:12px;text-align:center}
+.modal input[type=number]::-webkit-inner-spin-button{opacity:1}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.modal-btns button{padding:6px 16px;border-radius:5px;cursor:pointer;font-size:13px;border:none}
+.btn-save{background:#0abf53;color:#fff}
+.btn-reset{background:#576574;color:#fff}
+.btn-close{background:#ee5a24;color:#fff}
+
+/* TCP matrix */
+.tcp-matrix{overflow-x:auto;margin-top:8px}
+.tcp-matrix table{width:100%;border-collapse:collapse;font-size:12px}
+.tcp-matrix th{background:#0f1923;padding:8px 10px;text-align:center;font-weight:600;color:#feca57;border:1px solid #2d3e50}
+.tcp-matrix th.region{color:#48dbfb;text-align:left;min-width:60px}
+.tcp-matrix td{padding:6px 8px;text-align:center;border:1px solid #2d3e50}
+.tcp-matrix td.cell-up{background:#0abf5322}
+.tcp-matrix td.cell-down{background:#ee5a2422}
+.tcp-cell-delay{font-size:15px;font-weight:700;display:block}
+.tcp-cell-host{font-size:9px;color:#8395a7;display:block;margin-top:2px}
+h2{color:#48dbfb;font-size:17px;margin:18px 0 10px;border-bottom:1px solid #2d3e50;padding-bottom:6px}
+</style>
+</head>
+<body>
+
+<h1>网络出口可达性监控</h1>
+
+<div class="toolbar">
+    <button id="btnIcmp" class="active" onclick="switchTab('icmp')">ICMP Ping</button>
+    <button id="btnTcp" onclick="switchTab('tcp')">TCP 延迟</button>
+    <span class="sep">|</span>
+    <span style="color:#8395a7;font-size:12px">时间:</span>
+    <button id="btnZoomOut" title="缩小" onclick="zoomStep(-1)" style="font-weight:700;width:28px;padding:4px 0">-</button>
+    <div class="time-range" id="timeRangeBtns">
+        <button data-m="30">30分</button>
+        <button data-m="60" class="active">1时</button>
+        <button data-m="180">3时</button>
+        <button data-m="480">8时</button>
+        <button data-m="720">12时</button>
+        <button data-m="1440">1天</button>
+        <button data-m="4320">3天</button>
+        <button data-m="10080">7天</button>
+    </div>
+    <button id="btnZoomIn" title="放大" onclick="zoomStep(1)" style="font-weight:700;width:28px;padding:4px 0">+</button>
+    <span class="sep">|</span>
+    <button id="btnSettings" onclick="openSettings()">告警阈值</button>
+</div>
+
+<div id="icmpSection">
+    <div class="grid" id="icmpGrid"></div>
+</div>
+
+<div id="tcpSection" style="display:none">
+    <div class="card">
+        <h2 style="margin-top:0;border:none">TCP 延迟矩阵 (地区 x 运营商)</h2>
+        <div class="tcp-matrix" id="tcpMatrix"></div>
+    </div>
+    <div class="grid" id="tcpGrid" style="margin-top:14px"></div>
+</div>
+
+<div class="refresh">数据每 60s 刷新 | 更新: <span id="lastUpdate">--</span></div>
+
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+        <h2>告警阈值设置</h2>
+        <p style="color:#8395a7;font-size:12px;margin-bottom:10px">超过阈值时卡片变红框并泛光提醒。留空或 0 = 不设限。</p>
+        <table id="settingsTable"><thead><tr>
+            <th>目标</th><th>类型</th><th>延迟上限 (ms)</th><th>丢包容忍 (%)</th>
+        </tr></thead><tbody></tbody></table>
+        <div class="modal-btns">
+            <button class="btn-reset" onclick="resetSettings()">恢复默认</button>
+            <button class="btn-save" onclick="saveSettings()">保存</button>
+            <button class="btn-close" onclick="closeSettings()">关闭</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentTab='icmp',currentMinutes=60,alertSettings={},icmpData={},tcpData={};
+let chartMins={}; // per-chart minute override
+
+// ---- ID sanitize ----
+function safeId(s){return s.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g,'_')}
+// ---- Per-chart zoom ----
+function getChartMins(name){
+    if(chartMins[name])return chartMins[name];
+    return currentMinutes;
+}
+function zoomLabel(name){
+    const m=getChartMins(name);
+    if(m<60)return m+'分';
+    if(m<1440)return Math.round(m/60)+'时';
+    return Math.round(m/1440)+'天';
+}
+function chartZoom(name,dir,event){
+    event.stopPropagation();
+    let m=getChartMins(name);
+    let idx=ZOOM_STEPS.indexOf(m);
+    if(idx<0)idx=ZOOM_STEPS.indexOf(currentMinutes);
+    if(idx<0)idx=2; // default 60
+    idx=Math.max(0,Math.min(ZOOM_STEPS.length-1,idx+dir));
+    if(ZOOM_STEPS[idx]===currentMinutes){delete chartMins[name]}
+    else{chartMins[name]=ZOOM_STEPS[idx]}
+    const lbl=document.getElementById('zl_'+safeId(name));
+    if(lbl)lbl.textContent=zoomLabel(name);
+    // re-render just this chart
+    if(currentTab==='icmp'&&icmpData[name]){
+        drawChart('ic_'+safeId(name),filterHist(icmpData[name].history,name),'avg_ms',true);
+    }else if(currentTab==='tcp'&&tcpData[name]){
+        drawChart('tc_'+safeId(name),filterHist(tcpData[name].history,name),'delay_ms',false);
+    }
+}
+function filterHist(hist,name){
+    if(!hist||!hist.length)return hist;
+    const m=getChartMins(name);
+    const cutoff=new Date(Date.now()-m*60000);
+    return hist.filter(h=>{
+        if(!h.ts)return false;
+        return new Date(h.ts.replace(' ','T')+'+08:00')>=cutoff;
+    });
+}
+
+// ---- Alert storage ----
+function loadAlerts(){
+    try{return JSON.parse(localStorage.getItem('netmon_alerts')||'{}')}catch(e){return{}}
+}
+function saveAlerts(d){alertSettings=d;localStorage.setItem('netmon_alerts',JSON.stringify(d))}
+alertSettings=loadAlerts();
+
+// ---- Tab ----
+function switchTab(t){
+    currentTab=t;
+    document.getElementById('icmpSection').style.display=t==='icmp'?'block':'none';
+    document.getElementById('tcpSection').style.display=t==='tcp'?'block':'none';
+    document.getElementById('btnIcmp').className=t==='icmp'?'active':'';
+    document.getElementById('btnTcp').className=t==='tcp'?'active':'';
+    if(t==='tcp')renderTcpCharts();
+}
+
+// ---- Time range ----
+const STEPS=[30,60,180,480,720,1440,4320,10080];
+const ZOOM_STEPS=[10,30,60,180,480,720,1440,4320,7200,10080,20160,43200,129600,259200];
+function zoomStep(dir){
+    let idx=STEPS.indexOf(currentMinutes);
+    if(idx<0)idx=1;
+    idx=Math.max(0,Math.min(STEPS.length-1,idx+dir));
+    currentMinutes=STEPS[idx];
+    document.querySelectorAll('#timeRangeBtns button').forEach(b=>b.className='');
+    const btn=document.querySelector(`#timeRangeBtns button[data-m="${currentMinutes}"]`);
+    if(btn)btn.className='active';
+    loadData();
+}
+document.getElementById('timeRangeBtns').addEventListener('click',e=>{
+    if(e.target.tagName!=='BUTTON')return;
+    currentMinutes=parseInt(e.target.dataset.m);
+    document.querySelectorAll('#timeRangeBtns button').forEach(b=>b.className='');
+    e.target.className='active';
+    loadData();
+});
+
+// ---- Settings modal ----
+function openSettings(){
+    const icmpN=Object.keys(icmpData).map(k=>({name:k,type:'ICMP'}));
+    const tcpN=Object.keys(tcpData).map(k=>({name:k,type:'TCP'}));
+    const all=[...icmpN,...tcpN];
+    const tb=document.querySelector('#settingsTable tbody');
+    tb.innerHTML=all.map((t,i)=>{
+        const s=alertSettings[t.name]||{};
+        return `<tr>
+            <td style="color:#c8d6e5">${t.name}</td>
+            <td style="color:#8395a7">${t.type}</td>
+            <td><input data-idx="${i}" data-name="${t.name}" data-field="maxLat" type="number" value="${s.maxLat||''}" placeholder="-" min="0" step="1"></td>
+            <td><input data-idx="${i}" data-name="${t.name}" data-field="maxLoss" type="number" value="${s.maxLoss||''}" placeholder="-" min="0" max="100" step="0.1"></td>
+        </tr>`;
+    }).join('');
+    document.getElementById('modalOverlay').classList.add('show');
+}
+function closeSettings(){document.getElementById('modalOverlay').classList.remove('show')}
+function saveSettings(){
+    const inputs=document.querySelectorAll('#settingsTable input');
+    const s={};
+    inputs.forEach(inp=>{
+        const n=inp.dataset.name,f=inp.dataset.field;
+        if(!s[n])s[n]={};
+        s[n][f]=inp.value===''?null:parseFloat(inp.value);
+    });
+    saveAlerts(s);
+    closeSettings();
+    loadData();
+}
+function resetSettings(){
+    saveAlerts({});
+    closeSettings();
+    openSettings();
+}
+document.getElementById('modalOverlay').addEventListener('click',e=>{
+    if(e.target===e.currentTarget)closeSettings();
+});
+
+// ---- Load data ----
+async function loadData(){
+    const m=currentMinutes;
+    const [ir,tr,ts]=await Promise.all([
+        fetch('/api/icmp/status?minutes='+m),
+        fetch('/api/tcp/status?minutes='+m),
+        fetch('/api/tcp/summary')
+    ]);
+    icmpData=await ir.json();
+    tcpData=await tr.json();
+    const tcpSum=await ts.json();
+
+    renderIcmp();
+    renderTcpMatrix(tcpSum);
+    if(currentTab==='tcp')renderTcpCharts();
+    document.getElementById('lastUpdate').textContent=new Date().toLocaleTimeString('zh-CN');
+}
+
+// ---- Alert class ----
+function alertCls(name,avgMs,lossPct){
+    const s=alertSettings[name];
+    if(!s)return'';
+    const la=s.maxLat&&avgMs!=null&&avgMs>s.maxLat;
+    const lo=s.maxLoss&&lossPct!=null&&lossPct>s.maxLoss;
+    if(la||lo)return'alert-critical';
+    const wa=s.maxLat&&avgMs!=null&&avgMs>s.maxLat*0.7;
+    const wo=s.maxLoss&&lossPct!=null&&lossPct>s.maxLoss*0.7;
+    if(wa||wo)return'alert-warning';
+    return'';
+}
+
+// ---- Render ICMP ----
+function renderIcmp(){
+    const grid=document.getElementById('icmpGrid');
+    const keys=Object.keys(icmpData);
+    if(!keys.length){grid.innerHTML='<div class="card" style="text-align:center;padding:40px">等待 ICMP 数据...</div>';return}
+    grid.innerHTML=keys.map(name=>{
+        const d=icmpData[name],l=d.latest||{};
+        const hist=filterHist(d.history,name);
+        const up=l.reachable===1;
+        // aggregate from visible history
+        const totalSent=hist.reduce((a,b)=>a+(b.sent||0),0);
+        const totalRecv=hist.reduce((a,b)=>a+(b.received||0),0);
+        const aggLoss=totalSent>0?((totalSent-totalRecv)/totalSent*100).toFixed(1):'0.0';
+        const avgs=hist.filter(h=>h.avg_ms!=null).map(h=>h.avg_ms);
+        const avgD=avgs.length?avgs.reduce((a,b)=>a+b,0)/avgs.length:null;
+        const minD=avgs.length?Math.min(...avgs):null;
+        const maxD=avgs.length?Math.max(...avgs):null;
+        const cls=avgD==null?'':avgD<80?'latency-low':avgD<200?'latency-mid':'latency-high';
+        const ac=alertCls(name,avgD,parseFloat(aggLoss));
+        return`<div class="card ${ac}">
+            <div class="card-header"><div><span class="card-title">${name}</span><span class="card-host"> (${d.host})</span></div>
+            <div style="display:flex;align-items:center;gap:4px"><span class="status-badge ${up?'status-up':'status-down'}">${up?'可达':'不可达'}</span>
+            <div class="zoom-btns"><button onclick="chartZoom('${name}',-1,event)">-</button><span class="zoom-label" id="zl_${safeId(name)}">${zoomLabel(name)}</span><button onclick="chartZoom('${name}',1,event)">+</button></div></div>
+            </div>
+            <div class="chart-wrap"><canvas id="ic_${safeId(name)}"></canvas></div>
+            <div class="stats">
+                <div class="stat"><div class="stat-value ${cls}">${avgD!=null?avgD.toFixed(1)+' ms':'--'}</div><div class="stat-label">平均</div></div>
+                <div class="stat"><div class="stat-value">${aggLoss}%</div><div class="stat-label">丢包 (${totalRecv}/${totalSent})</div></div>
+                <div class="stat"><div class="stat-value latency-low">${minD!=null?minD.toFixed(1)+' ms':'--'}</div><div class="stat-label">最小</div></div>
+                <div class="stat"><div class="stat-value latency-high">${maxD!=null?maxD.toFixed(1)+' ms':'--'}</div><div class="stat-label">最大</div></div>
+            </div>
+        </div>`;
+    }).join('');
+    keys.forEach(k=>drawChart('ic_'+safeId(k),filterHist(icmpData[k].history,k),'avg_ms',true));
+}
+
+// ---- Render TCP matrix ----
+function renderTcpMatrix(sum){
+    const regions=['华北','华东','华南','华中','华西'],isps=['电信','联通','移动'];
+    let h='<table><thead><tr><th class="region">地区</th>';
+    isps.forEach(i=>h+=`<th>${i}</th>`);
+    h+='</tr></thead><tbody>';
+    regions.forEach(r=>{
+        h+=`<tr><td class="region" style="font-weight:700;color:#48dbfb">${r}</td>`;
+        isps.forEach(i=>{
+            const key=`${r}-${i}`,s=sum[key];
+            if(!s){h+='<td class="cell-down"><span class="tcp-cell-delay">--</span></td>';return}
+            const delay=s.avg_delay!=null?s.avg_delay.toFixed(1)+' ms':'--';
+            const cd=s.avg_delay==null?'':s.avg_delay<30?'latency-low':s.avg_delay<80?'latency-mid':'latency-high';
+            const uc=s.reachable_pct>0?'cell-up':'cell-down';
+            h+=`<td class="${uc}"><span class="tcp-cell-delay ${cd}">${delay}</span><span class="tcp-cell-host">${s.host}:${s.port}</span></td>`;
+        });
+        h+='</tr>';
+    });
+    h+='</tbody></table>';
+    document.getElementById('tcpMatrix').innerHTML=h;
+}
+
+// ---- Render TCP charts ----
+let tcpCharts={};
+function renderTcpCharts(){
+    const grid=document.getElementById('tcpGrid');
+    const keys=Object.keys(tcpData);
+    if(!keys.length){grid.innerHTML='<div class="card" style="text-align:center;padding:40px">等待 TCP 数据...</div>';return}
+    grid.innerHTML=keys.map(name=>{
+        const d=tcpData[name],l=d.latest||{};
+        const up=l.reachable===1;
+        const hist=filterHist(d.history,name);
+        // compute avg/max/min from visible history
+        const delays=hist.filter(h=>h.delay_ms!=null).map(h=>h.delay_ms);
+        const avgD=delays.length?delays.reduce((a,b)=>a+b,0)/delays.length:null;
+        const maxD=delays.length?Math.max(...delays):null;
+        const minD=delays.length?Math.min(...delays):null;
+        const cls=avgD==null?'':avgD<30?'latency-low':avgD<80?'latency-mid':'latency-high';
+        const ac=alertCls(name,avgD,null);
+        return`<div class="card ${ac}">
+            <div class="card-header"><div><span class="card-title">${name}</span><span class="card-host"> (${d.host}:${d.port})</span></div>
+            <div style="display:flex;align-items:center;gap:4px"><span class="status-badge ${up?'status-up':'status-down'}">${up?'可达':'不可达'}</span>
+            <div class="zoom-btns"><button onclick="chartZoom('${name}',-1,event)">-</button><span class="zoom-label" id="zl_${safeId(name)}">${zoomLabel(name)}</span><button onclick="chartZoom('${name}',1,event)">+</button></div></div>
+            </div>
+            <div class="chart-wrap"><canvas id="tc_${safeId(name)}"></canvas></div>
+            <div class="stats">
+                <div class="stat"><div class="stat-value ${cls}">${avgD!=null?avgD.toFixed(1)+' ms':'--'}</div><div class="stat-label">平均</div></div>
+                <div class="stat"><div class="stat-value latency-low">${minD!=null?minD.toFixed(1)+' ms':'--'}</div><div class="stat-label">最小</div></div>
+                <div class="stat"><div class="stat-value latency-high">${maxD!=null?maxD.toFixed(1)+' ms':'--'}</div><div class="stat-label">最大</div></div>
+            </div>
+        </div>`;
+    }).join('');
+    keys.forEach(k=>drawChart('tc_'+safeId(k),filterHist(tcpData[k].history,k),'delay_ms',false));
+}
+
+// ---- Chart drawing ----
+let charts={};
+function drawChart(cid,hist,field,hasLoss){
+    if(!hist||!hist.length)return;
+    const c=document.getElementById(cid);
+    if(!c)return;
+    if(charts[cid])charts[cid].destroy();
+
+    const labels=hist.map(h=>h.ts||'');
+    const vals=hist.map(h=>h[field]);
+    const ds=[{
+        label:field==='delay_ms'?'TCP延迟':'延迟',
+        data:vals,borderColor:'#48dbfb',backgroundColor:'rgba(72,219,251,0.08)',
+        fill:true,tension:0.3,pointRadius:0,borderWidth:1.5,yAxisID:'y',
+    }];
+    if(hasLoss)ds.push({
+        label:'丢包',data:hist.map(h=>h.loss_pct),
+        borderColor:'#ee5a24',backgroundColor:'rgba(238,90,36,0.05)',
+        fill:true,tension:0.3,pointRadius:0,borderWidth:1.5,yAxisID:'y1',
+    });
+
+    charts[cid]=new Chart(c,{
+        type:'line',data:{labels,datasets:ds},
+        options:{
+            responsive:true,maintainAspectRatio:false,
+            interaction:{intersect:false,mode:'index'},
+            plugins:{legend:{display:false}},
+            scales:{
+                x:{display:true,
+                    ticks:{color:'#a0b4c8',font:{size:10},maxTicksLimit:10,autoSkip:true},
+                    grid:{color:'#1e2d3d'}},
+                y:{type:'linear',position:'left',
+                    grid:{color:'#2d3e50'},
+                    ticks:{color:'#a0b4c8',font:{size:10}},
+                    title:{display:true,text:'ms',color:'#a0b4c8'}},
+                y1:hasLoss?{type:'linear',position:'right',min:0,max:100,
+                    grid:{display:false},
+                    ticks:{color:'#a0b4c8',font:{size:10},callback:v=>v+'%'}}:{display:false},
+            },
+        },
+    });
+}
+
+// ---- Init ----
+loadData();
+setInterval(loadData,60000);
+</script>
+</body>
+</html>

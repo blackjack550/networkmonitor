@@ -1,0 +1,9 @@
+keys/
+.venv/
+data/
+logs/
+*.pid
+*.log
+deploy.tar.gz
+__pycache__/
+*.pyc

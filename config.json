@@ -1,0 +1,36 @@
+{
+    "icmp_targets": [
+        {"name": "Google DNS", "host": "8.8.8.8"},
+        {"name": "Cloudflare DNS", "host": "1.1.1.1"},
+        {"name": "阿里 DNS", "host": "223.5.5.5"},
+        {"name": "腾讯 DNS", "host": "119.29.29.29"},
+        {"name": "OpenDNS", "host": "208.67.222.222"},
+        {"name": "百度 DNS", "host": "180.76.76.76"}
+    ],
+    "tcp_targets": [
+        {"name": "华北-电信", "host": "www.189.cn", "port": 443, "region": "华北", "isp": "电信"},
+        {"name": "华北-联通", "host": "www.10010.com", "port": 443, "region": "华北", "isp": "联通"},
+        {"name": "华北-移动", "host": "www.bj.10086.cn", "port": 443, "region": "华北", "isp": "移动"},
+        {"name": "华东-电信", "host": "www.sh.189.cn", "port": 443, "region": "华东", "isp": "电信"},
+        {"name": "华东-联通", "host": "www.baidu.com", "port": 443, "region": "华东", "isp": "联通"},
+        {"name": "华东-移动", "host": "www.sh.10086.cn", "port": 443, "region": "华东", "isp": "移动"},
+        {"name": "华南-电信", "host": "www.gd.189.cn", "port": 443, "region": "华南", "isp": "电信"},
+        {"name": "华南-联通", "host": "www.qq.com", "port": 443, "region": "华南", "isp": "联通"},
+        {"name": "华南-移动", "host": "www.gd.10086.cn", "port": 443, "region": "华南", "isp": "移动"},
+        {"name": "华中-电信", "host": "www.sina.com.cn", "port": 443, "region": "华中", "isp": "电信"},
+        {"name": "华中-联通", "host": "www.sohu.com", "port": 443, "region": "华中", "isp": "联通"},
+        {"name": "华中-移动", "host": "www.163.com", "port": 443, "region": "华中", "isp": "移动"},
+        {"name": "华西-电信", "host": "www.taobao.com", "port": 443, "region": "华西", "isp": "电信"},
+        {"name": "华西-联通", "host": "www.jd.com", "port": 443, "region": "华西", "isp": "联通"},
+        {"name": "华西-移动", "host": "www.bilibili.com", "port": 443, "region": "华西", "isp": "移动"}
+    ],
+    "ping_count": 10,
+    "ping_timeout": 5,
+    "tcp_timeout": 5,
+    "interval_seconds": 60,
+    "data_dir": "./data",
+    "web": {
+        "host": "0.0.0.0",
+        "port": 8080
+    }
+}
